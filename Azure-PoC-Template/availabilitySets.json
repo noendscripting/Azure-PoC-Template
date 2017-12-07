@@ -1,0 +1,43 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "dcAslocation": {
+      "type": "string"
+    },
+    "iisAsLocation": {
+      "type": "string"
+    },
+    "dcAvailabilitySetName": {
+      "type": "string"
+    },
+    "iisAvailabilitySetName": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[parameters('dcAvailabilitySetName')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('dcAslocation')]"
+    },
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[parameters('iisAvailabilitySetName')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('iisAsLocation')]",
+      "properties": {}
+    }
+  ],
+  "outputs": {
+    "dcAvSetId": {
+      "value": "[resourceId('Microsoft.Compute/availabilitySets',parameters('dcAvailabilitySetName'))]",
+      "type": "string"
+    },
+    "iisAvSetId": {
+      "value": "[resourceId('Microsoft.Compute/availabilitySets',parameters('iisAvailabilitySetName'))]",
+      "type": "string"
+    }
+  }
+}

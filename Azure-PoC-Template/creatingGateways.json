@@ -1,0 +1,100 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location1": {
+      "type": "string"
+    },
+    "location2": {
+      "type": "string"
+    },
+    "gatewaySubnetRef1": {
+      "type": "string"
+    },
+    "gatewaySubnetRef2": {
+      "type": "string"
+    },
+    "gatewayName1": {
+      "type": "string"
+    },
+    "gatewayName2": {
+      "type": "string"
+    },
+    "gateway1PublicIpResourceId": {
+      "type": "string"
+    },
+    "gateway2PublicIpResourceId": {
+      "type": "string"
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+
+    // Gateway - West vnet
+    {
+      "apiVersion": "2016-03-30",
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "name": "[parameters('gatewayName1')]",
+      "location": "[parameters('location1')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[parameters('gatewaySubnetRef1')]"
+              },
+              "publicIPAddress": {
+                "id": "[parameters('gateway1PublicIpResourceId')]"
+              }
+            },
+            "name": "vnetGatewayConfig1"
+          }
+        ],
+        "gatewayType": "Vpn",
+        "vpnType": "RouteBased",
+        "enableBgp": "false"
+      }
+    },
+    // End Gateway - West vnet
+
+    // Gateway - East vnet
+    {
+      "apiVersion": "2016-03-30",
+      "type": "Microsoft.Network/virtualNetworkGateways",
+      "name": "[parameters('gatewayName2')]",
+      "location": "[parameters('location2')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[parameters('gatewaySubnetRef2')]"
+              },
+              "publicIPAddress": {
+                "id": "[parameters('gateway2PublicIpResourceId')]"
+              }
+            },
+            "name": "vnetGatewayConfig2"
+          }
+        ],
+        "gatewayType": "Vpn",
+        "vpnType": "RouteBased",
+        "enableBgp": "false"
+      }
+    }
+    // End Gateway - East vnet
+  ],
+  "outputs": {
+    "gateway1Id": {
+      "value": "[resourceId('Microsoft.Network/virtualNetworkGateways',parameters('gatewayName1'))]",
+      "type": "string"
+    },
+    "gateway2Id": {
+      "value": "[resourceId('Microsoft.Network/virtualNetworkGateways',parameters('gatewayName2'))]",
+      "type": "string"
+    }
+  }
+}

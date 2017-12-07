@@ -1,0 +1,1027 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    // General usage parameters
+    "_artifactsLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
+      }
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Auto-generated token to access _artifactsLocation"
+      }
+    },
+    "location1": {
+      "type": "string",
+      "metadata": {
+        "description": "The 1st region to deploy the resources into"
+      },
+      "defaultValue": "westus"
+    },
+    "location2": {
+      "type": "string",
+      "metadata": {
+        "description": "The 2nd region to deploy the resources into"
+      },
+      "defaultValue": "eastus"
+    },
+    "azureEnvironment": {
+      "type": "string",
+      "allowedValues": [
+        "AzurePublic",
+        "AzureGovernment"
+      ],
+      "metadata": {
+        "description": "Select the Azure environment to use, Public or Government."
+      },
+      "defaultValue": "AzurePublic"
+    },
+    // Storage Accounts related parameters
+    "storageAccountNamePrefix": {
+      "type": "string",
+      "maxLength": 14,
+      "minLength": 1,
+      "metadata": {
+        "description": "Name prefix of the new storage account created to store the VMs disks"
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "allowedValues": [
+        "Premium_LRS",
+        "Standard_LRS",
+        "Standard_GRS"
+      ],
+      "metadata": {
+        "description": "The type of the Storage Account created"
+      },
+      "defaultValue": "Standard_LRS"
+    },
+    // Domain Controller and IIs related parameters
+    "dcVmSize": {
+      "type": "string",
+      "metadata": {
+        "description": "The size of the Domain Controller"
+      },
+      "defaultValue": "Standard_D1_V2"
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Administrator of the new VM and Domain"
+      },
+      "defaultValue": "localadmin"
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "minLength": 12,
+      "maxLength": 123,
+      "metadata": {
+        "description": "The password for the Administrator account of the VMs and Domain Admin"
+      }
+    },
+    "domainName": {
+      "type": "string",
+      "metadata": {
+        "description": "The FQDN of the AD Domain created "
+      },
+      "defaultValue": "contosoAD.com"
+    },
+    "iisVmSize": {
+      "type": "string",
+      "metadata": {
+        "description": "The size of the IIS Servers"
+      },
+      "defaultValue": "Standard_D1_V2"
+    },
+    // Vnet related parameters
+    "location1VnetIpAddressSpace": {
+      "type": "string",
+      "metadata": {
+        "description": "Ip address space of the vnet on the 1st region."
+      },
+      "defaultValue": "10.0.0.0/16"
+    },
+    "location2VnetIpAddressSpace": {
+      "type": "string",
+      "metadata": {
+        "description": "Ip address space of the vnet on the 2nd region."
+      },
+      "defaultValue": "192.168.0.0/16"
+    },
+    "location1VnetSubnetAddressRange": {
+      "type": "string",
+      "metadata": {
+        "description": "Ip address range of location 1 subnet 1."
+      },
+      "defaultValue": "10.0.0.0/24"
+    },
+    "location2VnetSubnetAddressRange": {
+      "type": "string",
+      "metadata": {
+        "description": "Ip address range of location 2 subnet 1."
+      },
+      "defaultValue": "192.168.0.0/24"
+    },
+    "location1VnetGatewaySubnetAddressRange": {
+      "type": "string",
+      "metadata": {
+        "description": "Ip address range of the gateway subnet of vnet at location 1."
+      },
+      "defaultValue": "10.0.255.0/24"
+    },
+    "location2VnetGatewaySubnetAddressRange": {
+      "type": "string",
+      "metadata": {
+        "description": "Ip address range of the gateway subnet of vnet at location 2."
+      },
+      "defaultValue": "192.168.255.0/24"
+    },
+    // NICs related parameters
+    "dcNicIPAddress": {
+      "type": "string",
+      "metadata": {
+        "description": "Private IP address of the new Domain Controller"
+      },
+      "defaultValue": "10.0.0.4"
+    },
+    "iis01NicIpAddress": {
+      "type": "string",
+      "metadata": {
+        "description": "Private IP address of IIS01 vm"
+      },
+      "defaultValue": "192.168.0.4"
+    },
+    "iis02NicIpAddress": {
+      "type": "string",
+      "metadata": {
+        "description": "Private IP address of IIS02 vm"
+      },
+      "defaultValue": "192.168.0.5"
+    }
+  },
+  "variables": {
+    // General usage variables
+    "baseUrl": "[parameters('_artifactsLocation')]",
+
+    // Blob storage Uri
+    "cloudSelectionUri": "[concat(variables('baseUrl'),'/cloudSelection-',parameters('azureEnvironment'),'.json',parameters('_artifactsLocationSasToken'))]",
+
+    // Storage accounts variables
+    "storageAccountSetupURL": "[concat(variables('baseUrl'),'/storageAccount.json',parameters('_artifactsLocationSasToken'))]",
+    "location1StorageAccountName": "[concat(parameters('storageAccountNamePrefix'),'pocweststd')]",
+    "location2StorageAccountName": "[concat(parameters('storageAccountNamePrefix'),'poceaststd')]",
+
+    // NSGs related variables
+    "dcNsgName": "DC-NSG",
+    "eastVnetSubnetNsg": "East-SN-NSG",
+    "nsgsSetupURL": "[concat(variables('baseUrl'),'/nsgsSetup.json',parameters('_artifactsLocationSasToken'))]",
+
+    // Virtual Networking Setup variables
+    "virtualNetworkSetupURL": "[concat(variables('baseUrl'),'/creatingVnets.json',parameters('_artifactsLocationSasToken'))]",
+    "virtualNetworkUpdateURL": "[concat(variables('baseUrl'),'/updatingVnets.json',parameters('_artifactsLocationSasToken'))]",
+    "virtualNetworkName1": "West-VNET",
+    "subnet1Name1": "West-VNET-Infrastructure-Subnet",
+    "virtualNetworkName2": "East-VNET",
+    "subnet1Name2": "East-VNET-App-Subnet",
+
+    // VPN and Gateways related values
+    "virtualNetworkGatewaysSetupURL": "[concat(variables('baseUrl'),'/creatingGateways.json',parameters('_artifactsLocationSasToken'))]",
+    "connectionsSetupURL": "[concat(variables('baseUrl'),'/establishingVpnConnection.json',parameters('_artifactsLocationSasToken'))]",
+    "gateway1Name": "westus-vnet-Gateway",
+    "gateway1PublicIPName": "westus-gwpip",
+    "gw1PublicIPAddressType": "Dynamic",
+    "gateway2Name": "eastus-vnet-Gateway",
+    "gateway2PublicIPName": "eastus-gwpip",
+    "gw2PublicIPAddressType": "Dynamic",
+    "connectionName1": "westus-gwConnection",
+    "connectionName2": "eastus-gwConnection",
+
+    // Domain Controller related variables
+    "provisioningDomainControllerUrl": "[concat(variables('baseUrl'),'/provisioningDomainController.json',parameters('_artifactsLocationSasToken'))]",
+    "promoteVmAsDomainControllerUrl": "[concat(variables('baseUrl'),'/configuringDomainController.json',parameters('_artifactsLocationSasToken'))]",
+    "dcVmName": "DC",
+    "dcDataDisk": "DataDisk",
+    "dcConfigurationFunction1": "ProvisionDcVm.ps1\\ProvisionDcVm",
+    "dcConfigurationFunction2": "DCConfig.ps1\\DcConfig",
+
+    // IIS related variables
+    "provisioningIisVmsUrl": "[concat(variables('baseUrl'),'/provisioningIIS.json',parameters('_artifactsLocationSasToken'))]",
+    "iisVmNamePrefix": "IIS",
+    "iisVmCount": 2,
+    "iisConfigurationFunction": "IISInstall.ps1\\IISInstall",
+
+    // Availability Sets variables
+    "creatingAvailabilitySetsUrl": "[concat(variables('baseUrl'),'/availabilitySets.json',parameters('_artifactsLocationSasToken'))]",
+    "dcAvailabilitySetName": "dcAvailabiltySet",
+    "iisAvailabilitySetName": "iisAvailabiltySet",
+
+    // NICs related variables
+    "creatingNICSUrl": "[concat(variables('baseUrl'),'/creatingNICS.json',parameters('_artifactsLocationSasToken'))]",
+    "updatingNICSUrl": "[concat(variables('baseUrl'),'/updatingNICSwithDNS.json',parameters('_artifactsLocationSasToken'))]",
+    "dcNicName": "dc-Nic",
+    "iis01NicName": "iis01Nic",
+    "iis02NicName": "iis02Nic",
+    "dcSubnetName": "West-VNET-Infrastructure-Subnet",
+    "iisSubnetName": "East-VNET-App-Subnet",
+    "vnetIDWest": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName1'))]",
+    "vnetIDEast": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName2'))]",
+    "dcSubnetRef": "[concat(variables('vnetIDWest'),'/subnets/',variables('dcSubnetName'))]",
+    "iisSubnetRef": "[concat(variables('vnetIDEast'),'/subnets/',variables('iisSubnetName'))]",
+
+    // Public Ips variables
+    "creatingPublicIPsUrl": "[concat(variables('baseUrl'),'/creatingPublicIPs.json', parameters('_artifactsLocationSasToken'))]",
+    "dcPublicIPAddressName": "dcPublicIP",
+    "lbPublicIPAddressName": "iisPublicIP",
+    "dcPublicIPAddressType": "Dynamic",
+    "lbPublicIPAddressType": "Dynamic",
+
+    // Load Balancer related variables
+    "setupLBsUrl": "[concat(variables('baseUrl'),'/loadBalancers.json',parameters('_artifactsLocationSasToken'))]",
+    "iisLBName": "iisLoadBalancer",
+    "lbFE": "LBFE",
+    "lbBE": "LBBE",
+    "iis01RdpNat": "iis01RdpNat",
+    "iis02RdpNat": "iis02RdpNat",
+
+    // Domain Join VMs related variables
+    "domainJoinVmsUrl": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/201-vm-domain-join-existing/azuredeploy.json",
+    "dominNetBiosName": "[split(parameters('domainName'),'.')[0]]"
+
+  },
+  "resources": [
+    // Start - Obtaining the correct blob storage Uri depending if using Azure Public or Government
+    {
+      "name": "gettingBlobStorageUri",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('cloudSelectionUri')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {}
+      }
+    },
+    // End - Obtaining the correct blob storage Uri depending if using Azure Public or Government
+
+    // Start - Storage Accounts
+    {
+      "name": "SettingUpStorageAccount",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/gettingBlobStorageUri"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('storageAccountSetupURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "storageAccountType": {
+            "value": "[parameters('storageAccountType')]"
+          },
+          "location1StorageAccountName": {
+            "value": "[variables('location1StorageAccountName')]"
+          },
+          "location2StorageAccountName": {
+            "value": "[variables('location2StorageAccountName')]"
+          }
+        }
+      }
+    },
+    // End - Storage Accounts
+
+    // Start - PublicIP Addresses
+    {
+      "name": "SettingUpPublicIPs",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('creatingPublicIPsUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "dcPublicIPAddressName": {
+            "value": "[variables('dcPublicIPAddressName')]"
+          },
+          "dcPublicIPAddressType": {
+            "value": "[variables('dcPublicIPAddressType')]"
+          },
+          "lbPublicIPAddressName": {
+            "value": "[variables('lbPublicIPAddressName')]"
+          },
+          "lbPublicIPAddressType": {
+            "value": "[variables('lbPublicIPAddressType')]"
+          },
+          "gateway1PublicIPName": {
+            "value": "[variables('gateway1PublicIPName')]"
+          },
+          "gw1PublicIPAddressType": {
+            "value": "[variables('gw1PublicIPAddressType')]"
+          },
+          "gateway2PublicIPName": {
+            "value": "[variables('gateway2PublicIPName')]"
+          },
+          "gw2PublicIPAddressType": {
+            "value": "[variables('gw2PublicIPAddressType')]"
+          }
+        }
+      }
+    },
+    // End - PublicIP Addresses
+
+    // Start - Availability Sets
+    {
+      "name": "CreatingAvailabilitySets",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('CreatingAvailabilitySetsUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "dcAsLocation": {
+            "value": "[parameters('location1')]"
+          },
+          "dcAvailabilitySetName": {
+            "value": "[variables('dcAvailabilitySetName')]"
+          },
+          "iisAvailabilitySetName": {
+            "value": "[variables('iisAvailabilitySetName')]"
+          },
+          "iisAsLocation": {
+            "value": "[parameters('location2')]"
+          }
+        }
+      }
+    },
+    // End - Availability Sets
+
+    // Start - NSGs Setup
+    {
+      "name": "SettingUpNsgs",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('nsgsSetupURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "addressPrefix1": {
+            "value": "[parameters('location1VnetIpAddressSpace')]"
+          },
+          "addressPrefix2": {
+            "value": "[parameters('location2VnetIpAddressSpace')]"
+          },
+          "eastVnetSubnetNsg": {
+            "value": "[variables('eastVnetSubnetNsg')]"
+          },
+          "dcNsgName": {
+            "value": "[variables('dcNsgName')]"
+          }
+        }
+      }
+    },
+    // End - NSG Setup
+
+    // Start - Virtual Networks Setup
+    {
+      "name": "SettingUpVirtualNetworks",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpNsgs"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('virtualNetworkSetupURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "virtualNetworkName1": {
+            "value": "[variables('virtualNetworkName1')]"
+          },
+          "addressPrefix1": {
+            "value": "[parameters('location1VnetIpAddressSpace')]"
+          },
+          "subnet1Name1": {
+            "value": "[variables('subnet1Name1')]"
+          },
+          "subnet1Prefix1": {
+            "value": "[parameters('location1VnetSubnetAddressRange')]"
+          },
+          "gatewaySubnetPrefix1": {
+            "value": "[parameters('location1VnetGatewaySubnetAddressRange')]"
+          },
+          "virtualNetworkName2": {
+            "value": "[variables('virtualNetworkName2')]"
+          },
+          "addressPrefix2": {
+            "value": "[parameters('location2VnetIpAddressSpace')]"
+          },
+          "subnet1Name2": {
+            "value": "[variables('subnet1Name2')]"
+          },
+          "subnet1Prefix2": {
+            "value": "[parameters('location2VnetSubnetAddressRange')]"
+          },
+          "gatewaySubnetPrefix2": {
+            "value": "[parameters('location2VnetGatewaySubnetAddressRange')]"
+          },
+          "eastVnetSubnetNsg": {
+            "value": "[variables('eastVnetSubnetNsg')]"
+          }
+        }
+      }
+    },
+    // End - Virtual Networks Setup
+
+    // Start - Gateways Setup
+    {
+      "name": "SettingUpVirtualNetworksGateways",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpVirtualNetworks",
+        "Microsoft.Resources/deployments/SettingUpPublicIPs"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('virtualNetworkGatewaysSetupURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "gatewaySubnetRef1": {
+            "value": "[reference('SettingUpVirtualNetworks').outputs.gatewaySubnetRef1.value]"
+          },
+          "gatewaySubnetRef2": {
+            "value": "[reference('SettingUpVirtualNetworks').outputs.gatewaySubnetRef2.value]"
+          },
+          "gateway1PublicIpResourceId": {
+            "value": "[reference('SettingUpPublicIPs').outputs.gateway1PublicIpResourceId.value]"
+          },
+          "gateway2PublicIpResourceId": {
+            "value": "[reference('SettingUpPublicIPs').outputs.gateway2PublicIpResourceId.value]"
+          },
+          "gatewayName1": {
+            "value": "[variables('gateway1Name')]"
+          },
+          "gatewayName2": {
+            "value": "[variables('gateway2Name')]"
+          }
+        }
+      }
+    },
+    // End - Gateways Setup
+
+    // Start - Connections Setup
+    {
+      "name": "SettingUpConnections",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpVirtualNetworksGateways"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('connectionsSetupURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "connectionName1": {
+            "value": "[variables('connectionName1')]"
+          },
+          "connectionName2": {
+            "value": "[variables('connectionName2')]"
+          },
+          "sharedKey": {
+            "value": "a1b2c3d4e5"
+          },
+          "gateway1Id": {
+            "value": "[reference('SettingUpVirtualNetworksGateways').outputs.gateway1Id.value]"
+          },
+          "gateway2Id": {
+            "value": "[reference('SettingUpVirtualNetworksGateways').outputs.gateway2Id.value]"
+          }
+        }
+      }
+    },
+    // End - Connections Setup
+
+    // Start - Load Balancers
+    {
+      "name": "SettingUpLoadBalancers",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpPublicIPs"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('setupLBsUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('location2')]"
+          },
+          "iislbName": {
+            "value": "[variables('iisLBName')]"
+          },
+          "LBFE": {
+            "value": "[variables('LBFE')]"
+          },
+          "LBBE": {
+            "value": "[variables('LBBE')]"
+          },
+          "iis01RdpNat": {
+            "value": "[variables('iis01RdpNat')]"
+          },
+          "iis02RdpNat": {
+            "value": "[variables('iis02RdpNat')]"
+          },
+          "dcPublicIpResourceId": {
+            "value": "[reference('SettingUpPublicIPs').outputs.dcPublicIpResourceId.value]"
+          },
+          "iisPublicIPResourceId": {
+            "value": "[reference('SettingUpPublicIPs').outputs.lbPublicIpResourceId.value]"
+          }
+        }
+      }
+    },
+    // End - Load-Balancers
+
+    // Start - Network Interfaces
+    {
+      "name": "CreatingNetworkInterfaces",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpVirtualNetworks",
+        "Microsoft.Resources/deployments/SettingUpLoadBalancers"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('creatingNICSUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "dcNicName": {
+            "value": "[variables('dcNicName')]"
+          },
+          "dcNicIPAddress": {
+            "value": "[parameters('dcNicIPAddress')]"
+          },
+          "dcSubnetRef": {
+            "value": "[variables('dcSubnetRef')]"
+          },
+          "dcPublicIpResourceId": {
+            "value": "[reference('SettingUpPublicIPs').outputs.dcPublicIpResourceId.value]"
+          },
+          "dcNsgName": {
+            "value": "[variables('dcNsgName')]"
+          },
+          "iis01NicName": {
+            "value": "[variables('iis01NicName')]"
+          },
+          "iisSubnetRef": {
+            "value": "[variables('iisSubnetRef')]"
+          },
+          "iisBEAddressPoolID": {
+            "value": "[concat(reference('SettingUpLoadBalancers').outputs.iislbResourceId.value,'/backendAddressPools/',variables('LBBE'))]"
+          },
+          "iis01RDPNATRuleID": {
+            "value": "[concat(reference('SettingUpLoadBalancers').outputs.iislbResourceId.value,'/inboundNatRules/',variables('iis01RdpNat'))]"
+          },
+          "iis02RDPNATRuleID": {
+            "value": "[concat(reference('SettingUpLoadBalancers').outputs.iislbResourceId.value,'/inboundNatRules/',variables('iis02RdpNat'))]"
+          },
+          "iis02NicName": {
+            "value": "[variables('iis02NicName')]"
+          },
+          "iislbResourceId": {
+            "value": "[reference('SettingUpLoadBalancers').outputs.iislbResourceId.value]"
+          },
+          "iis01RdpNat": {
+            "value": "[variables('iis01RdpNat')]"
+          },
+          "iis01NicIpAddress": {
+            "value": "[parameters('iis01NicIpAddress')]"
+          },
+          "iis02NicIpAddress": {
+            "value": "[parameters('iis02NicIpAddress')]"
+          }
+        }
+      }
+    },
+    // End - Network Interfaces
+
+    // Start - Domain Controller
+    {
+      "name": "ProvisioningDomainController",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpStorageAccount",
+        "Microsoft.Resources/deployments/CreatingNetworkInterfaces",
+        "Microsoft.Resources/deployments/CreatingAvailabilitySets",
+        "Microsoft.Resources/deployments/SettingUpLoadBalancers"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('ProvisioningDomainControllerUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('location1')]"
+          },
+          "storageAccountUriNameSpace": {
+            "value": "[reference('gettingBlobStorageUri').outputs.storageAccountUriNameSpace.value]"
+          },
+          "dcVmName": {
+            "value": "[variables('dcVmName')]"
+          },
+          "dcVMSize": {
+            "value": "[parameters('dcVMSize')]"
+          },
+          "dcNicId": {
+            "value": "[reference('CreatingNetworkInterfaces').outputs.dcNicId.value]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "storageAccountName": {
+            "value": "[variables('location1StorageAccountName')]"
+          },
+          "dcAvSetId": {
+            "value": "[reference('CreatingAvailabilitySets').outputs.dcAvSetId.value]"
+          },
+          "dscModulesURL": {
+            "value": "[concat(variables('baseUrl'),'/dsc.zip')]"
+          },
+          "configurationFunction": {
+            "value": "[variables('dcConfigurationFunction1')]"
+          },
+          "sasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    },
+    // End - Domain Controller
+
+    // Start - IIS VMs
+    {
+      "name": "ProvisioningIisVms",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/SettingUpStorageAccount",
+        "Microsoft.Resources/deployments/CreatingNetworkInterfaces",
+        "Microsoft.Resources/deployments/CreatingAvailabilitySets",
+        "Microsoft.Resources/deployments/SettingUpLoadBalancers"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('ProvisioningIisVmsUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('location2')]"
+          },
+          "storageAccountUriNameSpace": {
+            "value": "[reference('gettingBlobStorageUri').outputs.storageAccountUriNameSpace.value]"
+          },
+          "vmNamePrefix": {
+            "value": "[variables('iisVmNamePrefix')]"
+          },
+          "vmSize": {
+            "value": "[parameters('iisVmSize')]"
+          },
+          "iisNicIdArray": {
+            "value": [
+              "[reference('CreatingNetworkInterfaces').outputs.iis1NicId.value]",
+              "[reference('CreatingNetworkInterfaces').outputs.iis2NicId.value]"
+            ]
+          },
+          "vmCount": {
+            "value": "[variables('iisVmCount')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "storageAccountName": {
+            "value": "[variables('location2StorageAccountName')]"
+          },
+          "iisAvSetId": {
+            "value": "[reference('CreatingAvailabilitySets').outputs.iisAvSetId.value]"
+          },
+          "dscModulesURL": {
+            "value": "[concat(variables('baseUrl'),'/dsc.zip')]"
+          },
+          "configurationFunction": {
+            "value": "[variables('iisConfigurationFunction')]"
+          },
+          "sasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    },
+    // End - IIS VMs
+
+    // Start - Promote VM as Domain Controller
+    {
+      "name": "promoteVmAsDomainController",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/ProvisioningDomainController"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('promoteVmAsDomainControllerUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('location1')]"
+          },
+          "vmName": {
+            "value": "[variables('dcVmName')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "domainName": {
+            "value": "[parameters('domainName')]"
+          },
+          "dscModulesURL": {
+            "value": "[concat(variables('baseUrl'),'/dsc.zip')]"
+          },
+          "configurationFunction": {
+            "value": "[variables('dcConfigurationFunction2')]"
+          },
+          "sasToken": {
+            "value": "[parameters('_artifactsLocationSasToken')]"
+          }
+        }
+      }
+    },
+    // End - Promote VM as Domain Controller
+
+    // Start - Update Virtual Networks DNS
+    {
+      "name": "updateVirtualNetworksDNS",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/promoteVmAsDomainController"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('virtualNetworkUpdateURL')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "virtualNetworkName1": {
+            "value": "[variables('virtualNetworkName1')]"
+          },
+          "addressPrefix1": {
+            "value": "[parameters('location1VnetIpAddressSpace')]"
+          },
+          "subnet1Name1": {
+            "value": "[variables('subnet1Name1')]"
+          },
+          "subnet1Prefix1": {
+            "value": "[parameters('location1VnetSubnetAddressRange')]"
+          },
+          "gatewaySubnetPrefix1": {
+            "value": "[parameters('location1VnetGatewaySubnetAddressRange')]"
+          },
+          "virtualNetworkName2": {
+            "value": "[variables('virtualNetworkName2')]"
+          },
+          "addressPrefix2": {
+            "value": "[parameters('location2VnetIpAddressSpace')]"
+          },
+          "subnet1Name2": {
+            "value": "[variables('subnet1Name2')]"
+          },
+          "subnet1Prefix2": {
+            "value": "[parameters('location2VnetSubnetAddressRange')]"
+          },
+          "gatewaySubnetPrefix2": {
+            "value": "[parameters('location2VnetGatewaySubnetAddressRange')]"
+          },
+          "eastVnetSubnetNsg": {
+            "value": "[variables('eastVnetSubnetNsg')]"
+          },
+          "dnsServers": {
+            "value": [
+              "[parameters('dcNicIPAddress')]"
+            ]
+          }
+        }
+      }
+    },
+    // End - Update Virtual Networks DNS
+
+    // Start - Updating Network Interfaces with DNS
+    {
+      "name": "updatingNICs",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/promoteVmAsDomainController",
+        "Microsoft.Resources/deployments/ProvisioningIisVms"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('updatingNICSUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location1": {
+            "value": "[parameters('location1')]"
+          },
+          "location2": {
+            "value": "[parameters('location2')]"
+          },
+          "dcNicName": {
+            "value": "[variables('dcNicName')]"
+          },
+          "dcNicIPAddress": {
+            "value": "[parameters('dcNicIPAddress')]"
+          },
+          "dcSubnetRef": {
+            "value": "[variables('dcSubnetRef')]"
+          },
+          "dcPublicIpResourceId": {
+            "value": "[reference('SettingUpPublicIPs').outputs.dcPublicIpResourceId.value]"
+          },
+          "dcNsgName": {
+            "value": "[variables('dcNsgName')]"
+          },
+          "iis01NicName": {
+            "value": "[variables('iis01NicName')]"
+          },
+          "iisSubnetRef": {
+            "value": "[variables('iisSubnetRef')]"
+          },
+          "iisBEAddressPoolID": {
+            "value": "[concat(reference('SettingUpLoadBalancers').outputs.iislbResourceId.value,'/backendAddressPools/',variables('LBBE'))]"
+          },
+          "iis01RDPNATRuleID": {
+            "value": "[concat(reference('SettingUpLoadBalancers').outputs.iislbResourceId.value,'/inboundNatRules/',variables('iis01RdpNat'))]"
+          },
+          "iis02RDPNATRuleID": {
+            "value": "[concat(reference('SettingUpLoadBalancers').outputs.iislbResourceId.value,'/inboundNatRules/',variables('iis02RdpNat'))]"
+          },
+          "iis02NicName": {
+            "value": "[variables('iis02NicName')]"
+          },
+          "iislbResourceId": {
+            "value": "[reference('SettingUpLoadBalancers').outputs.iislbResourceId.value]"
+          },
+          "iis01RdpNat": {
+            "value": "[variables('iis01RdpNat')]"
+          },
+          "iis01NicIpAddress": {
+            "value": "[parameters('iis01NicIpAddress')]"
+          },
+          "iis02NicIpAddress": {
+            "value": "[parameters('iis02NicIpAddress')]"
+          },
+          "dnsServers": {
+            "value": [
+              "[parameters('dcNicIPAddress')]"
+            ]
+          }
+        }
+      }
+    },
+    // End - Updating Network Interfaces with DNS
+
+    // Start - Domain joining VMs
+    {
+      "name": "domainJoiningVirtualMachines",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "Microsoft.Resources/deployments/updatingNICs",
+        "Microsoft.Resources/deployments/SettingUpConnections"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('domainJoinVmsUrl')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "location": {
+            "value": "[parameters('location2')]"
+          },
+          "vmList": {
+            "value": "IIS1,IIS2"
+          },
+          "domainJoinUserName": {
+            "value": "[concat(variables('dominNetBiosName'),'\\',parameters('adminUserName'))]"
+          },
+          "domainJoinUserPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "domainFQDN": {
+            "value": "[parameters('domainName')]"
+          }
+        }
+      }
+    }
+    // End - Domain joininh VMs
+  ],
+  "outputs": {
+  }
+}

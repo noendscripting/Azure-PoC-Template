@@ -1,0 +1,41 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location1": {
+      "type": "string"
+    },
+    "location2": {
+      "type": "string"
+    },
+    "location1StorageAccountName": {
+      "type": "string"
+    },
+    "location2StorageAccountName": {
+      "type": "string"
+     },
+    "storageAccountType": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('location1StorageAccountName')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('location1')]",
+      "properties": {
+        "accountType": "[parameters('storageAccountType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('location2StorageAccountName')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('location2')]",
+      "properties": {
+        "accountType": "[parameters('storageAccountType')]"
+      }
+    }
+  ]
+}

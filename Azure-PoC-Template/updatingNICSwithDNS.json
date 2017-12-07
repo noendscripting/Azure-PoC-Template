@@ -1,0 +1,177 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location1": {
+      "type": "string"
+    },
+    "location2": {
+      "type": "string"
+    },
+    "dcNicName": {
+      "type": "string"
+    },
+    "dcNicIPAddress": {
+      "type": "string"
+    },
+    "dcSubnetRef": {
+      "type": "string"
+    },
+    "iis01NicName": {
+      "type": "string"
+    },
+    "iisSubnetRef": {
+      "type": "string"
+    },
+    "iisBEAddressPoolID": {
+      "type": "string"
+    },
+    "iis01RDPNATRuleID": {
+      "type": "string"
+    },
+    "iis02RDPNATRuleID": {
+      "type": "string"
+    },
+    "iis02NicName": {
+      "type": "string"
+    },
+    "iisLbResourceId": {
+      "type": "string"
+    },
+    "iis01RdpNat": {
+      "type": "string"
+    },
+    "dcPublicIpResourceId": {
+      "type": "string"
+    },
+    "dcNsgName": {
+      "type": "string"
+    },
+    "iis01NicIpAddress": {
+      "type": "string"
+    },
+    "iis02NicIpAddress": {
+      "type": "string"
+    },
+    "dnsServers": {
+      "type": "array"
+    }
+  },
+  "resources": [
+    // DC NIC
+    {
+      "name": "[parameters('dcNicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location1')]",
+      "apiVersion": "2015-06-15",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[parameters('dcPublicIpResourceId')]"
+              },
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[parameters('dcNicIPAddress')]",
+              "subnet": {
+                "id": "[parameters('dcSubnetRef')]"
+              }
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": "[parameters('dnsServers')]"
+        },
+        "enableIPForwarding": false,
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('dcNsgName'))]"
+        }
+      }
+    },
+    // IIS01 NIC
+    {
+      "name": "[parameters('iis01NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location2')]",
+      "apiVersion": "2015-06-15",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "[parameters('iis01NicIpAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "subnet": {
+                "id": "[parameters('iisSubnetRef')]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[parameters('iisBEAddressPoolID')]"
+                }
+              ],
+              "loadBalancerInboundNatRules": [
+                {
+                  "id": "[parameters('iis01RDPNATRuleID')]"
+                }
+              ]
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": "[parameters('dnsServers')]"
+        },
+        "enableIPForwarding": false
+      }
+    },
+    // IIS02 NIC
+    {
+      "name": "[parameters('iis02NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[parameters('location2')]",
+      "apiVersion": "2015-06-15",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAddress": "[parameters('iis02NicIpAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "subnet": {
+                "id": "[parameters('iisSubnetRef')]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[parameters('iisBEAddressPoolID')]"
+                }
+              ],
+              "loadBalancerInboundNatRules": [
+                {
+                  "id": "[parameters('iis02RDPNATRuleID')]"
+                }
+              ]
+            }
+          }
+        ],
+        "dnsSettings": {
+          "dnsServers": "[parameters('dnsServers')]"
+        },
+        "enableIPForwarding": false
+      }
+    }
+  ],
+  "outputs": {
+    "dcNicId": {
+      "value": "[resourceId('Microsoft.Network/networkInterfaces',parameters('dcNicName'))]",
+      "type": "string"
+    },
+    "iis1NicId": {
+      "value": "[resourceId('Microsoft.Network/networkInterfaces',parameters('iis01NicName'))]",
+      "type": "string"
+    },
+    "iis2NicId": {
+      "value": "[resourceId('Microsoft.Network/networkInterfaces',parameters('iis02NicName'))]",
+      "type": "string"
+    }
+  }
+}

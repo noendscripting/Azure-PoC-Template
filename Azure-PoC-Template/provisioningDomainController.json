@@ -1,0 +1,129 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "storageAccountUriNameSpace": {
+      "type": "string"
+    },
+    "dcVmName": {
+      "type": "string"
+    },
+    "dcVMSize": {
+      "type": "string"
+    },
+    "adminUsername": {
+      "type": "string",
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "storageAccountName": {
+      "type": "string"
+    },
+    "dcNicId": {
+      "type": "string"
+    },
+    "dscModulesURL": {
+      "type": "string"
+    },
+    "configurationFunction": {
+      "type": "string"
+    },
+    "sasToken": {
+      "type": "string"
+    },
+    "dcAvSetId": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('dcVmName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('dcVMSize')]"
+        },
+        "availabilitySet": {
+          "id": "[parameters('dcAvSetId')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('dcVmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2012-R2-Datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('dcVmName'),'-osdisk')]",
+            "vhd": {
+              "uri": "[concat('http://',parameters('storageAccountName'),'.blob.core.',parameters('storageAccountUriNameSpace'),'/vhds/',parameters('dcVmName'),'-osdisk.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+
+          },
+          "dataDisks": [
+            {
+              "vhd": {
+                "uri": "[concat('http://',parameters('storageAccountName'),'.blob.core.',parameters('storageAccountUriNameSpace'),'/vhds/', parameters('dcVmName'),'-DataDisk.vhd')]"
+              },
+              "name": "[concat(parameters('dcVmName'),'-data-disk')]",
+              "caching": "None",
+              "createOption": "Empty",
+              "diskSizeGB": "1000",
+              "lun": 0
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[parameters('dcNicId')]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',parameters('storageAccountName'),'.blob.core.',parameters('storageAccountUriNameSpace'))]"
+          }
+        }
+      },
+      "resources": [
+        {
+          "type": "Microsoft.Compute/virtualMachines/extensions",
+          "name": "[concat(parameters('dcVmName'),'/configureDomainControllerVm')]",
+          "apiVersion": "2015-06-15",
+          "location": "[parameters('location')]",
+          "dependsOn": [
+            "[resourceId('Microsoft.Compute/virtualMachines', parameters('dcVmName'))]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.Powershell",
+            "type": "DSC",
+            "typeHandlerVersion": "2.19",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "modulesUrl": "[parameters('dscModulesURL')]",
+              "sasToken": "[parameters('sasToken')]",
+              "wmfVersion": "4.0",
+              "configurationFunction": "[parameters('configurationFunction')]"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

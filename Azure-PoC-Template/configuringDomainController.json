@@ -1,0 +1,67 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "vmName": {
+      "type": "string"
+    },
+    "adminUsername": {
+      "type": "string"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "domainName": {
+      "type": "string"
+    },
+    "dscModulesURL": {
+      "type": "string"
+    },
+    "configurationFunction": {
+      "type": "string"
+    },
+    "sasToken": {
+      "type": "string"
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(parameters('vmName'),'/configureDomainControllerVm')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publisher": "Microsoft.Powershell",
+        "type": "DSC",
+        "typeHandlerVersion": "2.19",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "modulesUrl": "[parameters('dscModulesURL')]",
+          "sasToken": "[parameters('sasToken')]",
+          "configurationFunction": "[parameters('configurationFunction')]",
+          "properties": {
+            "domainName": "[parameters('domainName')]",
+            "dataDiskNumber": 2,
+            "dataDiskDriveLetter": "F",
+            "domainAdminCredentials": {
+              "userName": "[parameters('adminUserName')]",
+              "password": "PrivateSettingsRef:domainAdminPassword"
+            }
+          }
+        },
+        "protectedSettings": {
+          "items": {
+            "domainAdminPassword": "[parameters('AdminPassword')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+  }
+}

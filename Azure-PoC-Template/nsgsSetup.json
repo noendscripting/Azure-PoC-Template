@@ -1,0 +1,145 @@
+﻿{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location1": {
+      "type": "string",
+      "metadata": {
+        "description": "Location where first VNET, Gateway, PublicIP and Connection will be deployed."
+      }
+    },
+    "location2": {
+      "type": "string",
+      "metadata": {
+        "description": "Location where second VNET, Gateway, PublicIP and Connection will be deployed."
+      }
+    },
+    "addressPrefix1": {
+      "type": "string",
+      "metadata": {
+        "description": "Address space for the first VNET."
+      }
+    },
+    "addressPrefix2": {
+      "type": "string",
+      "metadata": {
+        "description": "Address space for the second VNET."
+      }
+    },
+    "dcNsgName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the domain controller NSG."
+      }
+    },
+    "eastVnetSubnetNsg": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the east vnet subnet NSG."
+      }
+    }
+  },
+  "variables": {
+    "apiVersion": "2015-05-01-preview"
+  },
+  "resources": [
+
+    // Network Security Group - Domain Controller NSG
+    {
+      "comments": "NSG for Domain Controller",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[parameters('dcNsgName')]",
+      "apiVersion": "2016-03-30",
+      "location": "[parameters('location1')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-rdp",
+            "properties": {
+              "access": "Allow",
+              "description": "Allow inbound RDP from internet",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "3389",
+              "direction": "Inbound",
+              "priority": 100,
+              "protocol": "Tcp",
+              "sourceAddressPrefix": "Internet",
+              "sourcePortRange": "*"
+            }
+          },
+          {
+            "name": "allow-all-eastsubnet",
+            "properties": {
+              "description": "Allow inbound all ports from east subnet",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('addressPrefix2')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 200,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    // End Network Security Group IIS
+
+    // Network Security Group - IIS Subnet
+    {
+      "comments": "NSG for IIS subnet",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[parameters('eastVnetSubnetNsg')]",
+      "apiVersion": "2016-03-30",
+      "location": "[parameters('location2')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-rdp",
+            "properties": {
+              "access": "Allow",
+              "description": "Allow inbound RDP from anywhere",
+              "destinationAddressPrefix": "*",
+              "destinationPortRange": "3389",
+              "direction": "Inbound",
+              "priority": 100,
+              "protocol": "Tcp",
+              "sourceAddressPrefix": "*",
+              "sourcePortRange": "*"
+            }
+          },
+          {
+            "name": "allow-80",
+            "properties": {
+              "description": "Allow inbound 80 from anywhere",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 200,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-all-westsubnet",
+            "properties": {
+              "description": "Allow inbound all ports from west subnet",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "[parameters('addressPrefix1')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 300,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    }
+    // End Network Security Group IIS
+  ]
+}

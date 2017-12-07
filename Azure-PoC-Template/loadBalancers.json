@@ -1,0 +1,121 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "iisLBName": {
+      "type": "string"
+    },
+    "LBFE": {
+      "type": "string"
+    },
+    "LBBE": {
+      "type": "string"
+    },
+    "iis01RdpNat": {
+      "type": "string"
+    },
+    "iis02RdpNat": {
+      "type": "string"
+    },
+    "dcPublicIpResourceId": {
+      "type": "string"
+    },
+    "iisPublicIPResourceId": {
+      "type": "string"
+    }
+  },
+  "resources": [
+    // IIS Load Balancer Configuration
+    {
+      "apiVersion": "2015-06-15",
+      "name": "[parameters('iisLBName')]",
+      "type": "Microsoft.Network/loadBalancers",
+      "location": "[parameters('location')]",
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "[parameters('LBFE')]",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[parameters('iisPublicIPResourceId')]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "[parameters('LBBE')]"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "http",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[concat(resourceid('Microsoft.Network/loadBalancers',parameters('iisLBName')), '/frontendIPConfigurations/',parameters('lbfe'))]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(resourceid('Microsoft.Network/loadBalancers',parameters('iisLBName')), '/backendAddressPools/',parameters('lbbe'))]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 80,
+              "backendPort": 80,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[concat(resourceid('Microsoft.Network/loadBalancers',parameters('iisLBName')), '/probes/httpProbe')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "httpProbe",
+            "properties": {
+              "protocol": "Http",
+              "port": 80,
+              "intervalInSeconds": 10,
+              "numberOfProbes": 2,
+              "requestPath": "/"
+            }
+          }
+        ],
+        "inboundNatRules": [
+          {
+            "name": "[parameters('iis01RdpNat')]",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[concat(resourceid('Microsoft.Network/loadBalancers',parameters('iisLBName')), '/frontendIPConfigurations/',parameters('LBFE'))]"
+              },
+              "protocol": "tcp",
+              "frontendPort": 3441,
+              "backendPort": 3389,
+              "enableFloatingIP": false
+            }
+          },
+          {
+            "name": "[parameters('iis02RdpNat')]",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[concat(resourceid('Microsoft.Network/loadBalancers',parameters('iisLBName')), '/frontendIPConfigurations/',parameters('LBFE'))]"
+              },
+              "protocol": "tcp",
+              "frontendPort": 3442,
+              "backendPort": 3389,
+              "enableFloatingIP": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "iislbResourceId": {
+      "value": "[resourceId('Microsoft.Network/loadBalancers',parameters('iisLBName'))]",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,126 @@
+﻿{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location1": {
+      "type": "string"
+    },
+    "location2": {
+      "type": "string"
+    },
+    "virtualNetworkName1": {
+      "type": "string"
+    },
+    "addressPrefix1": {
+      "type": "string"
+    },
+    "subnet1Name1": {
+      "type": "string",
+      "defaultValue": "Subnet-1"
+    },
+    "subnet1Prefix1": {
+      "type": "string"
+    },
+    "gatewaySubnetPrefix1": {
+      "type": "string"
+    },
+    "virtualNetworkName2": {
+      "type": "string"
+    },
+    "addressPrefix2": {
+      "type": "string"
+    },
+    "subnet1Name2": {
+      "type": "string",
+      "defaultValue": "Subnet-1"
+    },
+    "subnet1Prefix2": {
+      "type": "string"
+    },
+    "gatewaySubnetPrefix2": {
+      "type": "string"
+    },
+    "eastVnetSubnetNsg": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "vnetID1": "[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName1'))]",
+    "vnetID2": "[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName2'))]"
+  },
+  "resources": [
+    // Virtual Network - West vnet
+    {
+      "apiVersion": "2016-03-30",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[parameters('virtualNetworkName1')]",
+      "location": "[parameters('location1')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('addressPrefix1')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[parameters('subnet1Name1')]",
+            "properties": {
+              "addressPrefix": "[parameters('subnet1Prefix1')]"
+            }
+          },
+          {
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "[parameters('gatewaySubnetPrefix1')]"
+            }
+          }
+        ]
+      }
+    },
+    // End Virtual Network - West vnet
+
+    // Virtual Network - East vnet
+    {
+      "apiVersion": "2016-03-30",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[parameters('virtualNetworkName2')]",
+      "location": "[parameters('location2')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('addressPrefix2')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[parameters('subnet1Name2')]",
+            "properties": {
+              "addressPrefix": "[parameters('subnet1Prefix2')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('eastVnetSubnetNsg'))]"
+              }
+
+            }
+          },
+          {
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "[parameters('gatewaySubnetPrefix2')]"
+            }
+          }
+        ]
+      }
+    }
+    // End Virtual Network - East vnet
+  ],
+  "outputs": {
+    "gatewaySubnetRef1": {
+      "value": "[concat(variables('vnetID1'),'/subnets/','GatewaySubnet')]",
+      "type": "string"
+    },
+    "gatewaySubnetRef2": {
+      "value": "[concat(variables('vnetID2'),'/subnets/','GatewaySubnet')]",
+      "type": "string"
+    }
+  }
+}
